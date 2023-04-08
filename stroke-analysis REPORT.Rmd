@@ -1,0 +1,373 @@
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE)
+
+```
+
+# Analysis of Stroke Prediction Factors
+
+
+### Table of Content  
+
+title: "Stroke Predictionnnnnnn"
+author: '41349'
+date: '2023-04-08'
+output: pdf_document
+
+
+### 1.Introduction  
+
+The brain is arguably the most complex of all the organs in your body. It compose the major nerve center of the body, which coordinates all of our bodily functions, including behavior, thought and emotions.  
+
+One relatively common cause of brain damage and death is referred to as a stroke. A stroke is a medical emergency that occurs when blood flow to the brain is disrupted, resulting in brain damage. According to the World Health Organization, strokes are a leading cause of death and disability worldwide, with approximately 15 million people experiencing a stroke each year [(WHO,2020)](https://www.who.int/topics/stroke/en/). There are two main types of stroke; ischemic, which is caused  by a blockage in a blood vessel leading to the brain, and hemorrhagic, which is caused by bleeding in the brain. Both types of stroke can have serious and long_lasting effects on the body, including difficulty with movement, speech, and thinking, as well as an increased risk of death. Early recognition and treatment of stroke are crucial in minimizing the potential negative effect of stroke.
+
+
+  
+
+#### 4.1 Loading packages  
+
+Loading the packages that will help in analyzing the data using the library() function.
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(skimr)
+library(janitor)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(ggplot2)
+library(gridExtra)
+
+```
+
+#### 4.2 Importing data frames  
+
+```{r}
+Stroke_prediction  <- read_csv("/kaggle/input/stroke-prediction-dataset/healthcare-dataset-stroke-data.csv")    
+```
+
+####  4.3 Checking data frame  
+
+Previewing the data frame to check its structure 
+
+
+```{r}
+head(Stroke_prediction)
+str(Stroke_prediction)
+
+```
+
+#### 4.4 Cleaning data frames  
+
+#### 4.4.1  Validating data types 
+
+WE will change the datatype of Bmi from  Character to Double, and stroke with other diseases to Factor.
+
+
+```{r}
+Stroke_prediction <- transform(Stroke_prediction,
+                               bmi= as.double(bmi))
+
+
+Stroke_prediction$stroke <- as.factor(Stroke_prediction$stroke)
+Stroke_prediction$hypertension <- as.factor(Stroke_prediction$hypertension)
+Stroke_prediction$heart_disease <-factor(Stroke_prediction$heart_disease)
+
+```
+
+
+Since Id is unique for each person, I will check how many ids we have in the data frame
+
+```{r}
+n_unique(Stroke_prediction$id)
+```
+There are 5110 patients in the dataset. 
+ 
+
+#### 4.4.2  Checking for duplicates  
+
+Checking for duplicates using the duplicated() function and adding the TRUE values using the sum() function.
+
+```{r}
+# this adds the number of true values
+sum(duplicated(Stroke_prediction))
+
+```    
+
+There is no duplicate in the data frames.  
+
+#### 4.4.3 Cleaning columns name
+
+Will clean the column names using the clean_names() function, this is because R is a case sensitive language. The function changes the column names to snake_case.
+
+```{r}
+Stroke_prediction <- clean_names(Stroke_prediction)
+```    
+
+checking column names after cleaning
+
+```{r}
+names(Stroke_prediction)
+```  
+
+### 5 Analyze Phase  
+
+Analyzing the data to gain insights on factors that can help with Stroke prediction. 
+
+#### 5.1 Checking the distribution of stroke among patients in the data set  
+
+Using a table to check the distribution of stroke patients in our data
+
+```{r}
+Stroke_prediction %>% group_by(stroke) %>% summarise(patients = n()) %>%  mutate(total = sum(patients), percent = scales::percent(patients/total))
+
+```  
+
+
+Visualizing it with a bar chart  
+
+
+```{r}
+ggplot(data = Stroke_prediction, mapping = aes(x = stroke)) +
+  geom_bar(aes(fill = stroke)) + 
+  theme(  axis.ticks = element_blank(), panel.grid = element_blank(), ) + 
+  labs(title = "Distribution of stroke among patients", x = "stroke", y = "count" ) +
+  theme( plot.title = element_text(size = 14, face = "bold"), legend.position = "none", axis.line = element_line(size = 1), axis.ticks = element_line() ) + scale_fill_viridis_d()
+
+```  
+  
+  **Note**  
+  0 represents a patient without stroke while 1 represent a patient with stroke  
+  
+  Of the 5110 patients in the dataset, 249 patients have had strokes while 4861 were patients without stroke
+
+
+
+#### 5.2 Relationship between Stroke and Age  
+
+
+
+```{r}
+
+
+ggplot(Stroke_prediction) + geom_density(mapping = aes(x = age, fill = stroke, color = stroke ), alpha =0.5 )+ 
+  theme(  axis.ticks = element_blank(), panel.grid = element_blank(), ) + 
+  labs(title = "Distribution of Stroke status by age") +
+  theme( plot.title = element_text(size = 14, face = "bold"), axis.line = element_line(size = 1), axis.ticks = element_line() )
+
+
+ggplot(Stroke_prediction) + geom_point(mapping = aes(y = age, x = stroke, color = stroke ), alpha =0.9 )+ 
+  labs(title = "Distribution of Stroke status by age" ) +
+  theme( plot.title = element_text(size = 14, face = "bold"), legend.position = "none", axis.line = element_line(size = 1), axis.ticks = element_line() ) 
+```  
+
+The visualizations shows that Age has a positive correlation with Stroke    
+Majority of patients with stroke are of age 40 and above  
+There are 5 exceptions, two are extreme outliers with age lesser than 20  
+We can conclude from the charts that there is increase in chance of stroke as age increases
+
+
+#### 5.3  Relationship between Heart disease and Stroke  
+
+Checking for percentage of people with heart disease and people with healthy heart by Stoke status  
+
+```{r}
+# percentage of people without hearth disease who has had stroke and people who has not   
+
+a <- Stroke_prediction %>% filter(heart_disease == 0 ) %>% group_by(stroke) %>% summarise(people = n()) %>% 
+  mutate( total = sum(people), percentage = (people/total)) %>% 
+  ggplot(mapping = aes(x="", y = percentage, fill = stroke)) +
+  geom_col(stat = "identity", width = 1) + coord_polar(theta = "y", start = 0, direction = 1) +
+  theme(  axis.ticks = element_blank(), panel.grid = element_blank(), axis.title = element_blank(), axis.text = element_blank(),plot.title = element_text(size = 14, face = "bold")) +
+  geom_text(aes(label = scales::percent(percentage)), color = "White", position = position_stack(vjust = 0.8)) + labs(title = "Healthy heart Patients by stroke status")+ scale_fill_manual(values = c("burlywood3", "slateblue3"))
+
+# percentage of people with hearth disease who has had stroke and people who has not
+
+b <- Stroke_prediction %>% filter(heart_disease == 1 ) %>% group_by(stroke) %>% summarise(people = n()) %>% 
+  mutate( total = sum(people), percentage = (people/total)) %>% 
+  ggplot(mapping = aes(x="", y = percentage, fill = stroke)) +
+  geom_col(stat = "identity", width = 1) + coord_polar(theta = "y", start = 0) + 
+  theme(  axis.ticks = element_blank(), panel.grid = element_blank(), axis.text = element_blank(), axis.title = element_blank(),plot.title = element_text(size = 14, face = "bold")) + 
+  geom_text(aes(label = scales::percent(percentage)), color = "White" , position = position_stack(vjust = 0.6))+ labs(title = "Heart disease Patients by stroke status") + scale_fill_manual(values = c("burlywood3", "slateblue3"))
+
+# Viewing the two above charts together
+grid.arrange(a,b, ncol = 1)
+  
+```  
+
+
+About 4% of people with healthy hearth have stroke  
+About 17% of people with hearth disease have stroke  
+The visualization shows that the presence of heart disease in patients increases chance of getting Stroke
+
+
+#### 5.4  Relationship between Hypertension and Stroke  
+
+Checking for percentage of people with hypertension and normotensive patients by Stoke status   
+
+
+```{r}
+# percentage of hypertensive patients by stroke status   
+
+c <-  Stroke_prediction %>% filter(hypertension == 1 ) %>% group_by(stroke) %>% summarise(people = n()) %>% 
+  mutate( total = sum(people), percentage = (people/total)) %>% 
+  ggplot(mapping = aes(x="", y = percentage, fill = stroke)) +
+  geom_col(stat = "identity", width = 1) + coord_polar(theta = "y", start = 0) + 
+  theme(  axis.ticks = element_blank(), panel.grid = element_blank(), axis.text = element_blank(), axis.title = element_blank()) + 
+  geom_text(aes(label = scales::percent(percentage)) , position = position_stack(vjust = 0.6))+
+  labs(title = "Hypertensive Patients By Stroke Status")
+  
+
+# # percentage of normotensive patients by stroke status 
+
+d <- Stroke_prediction %>% filter(hypertension == 0 ) %>% group_by(stroke) %>% summarise(people = n()) %>% 
+  mutate( total = sum(people), percentage = (people/total)) %>% 
+  ggplot(mapping = aes(x="", y = percentage, fill = stroke)) +
+  geom_col(stat = "identity", width = 1) + coord_polar(theta = "y", start = 0) + 
+  theme(  axis.ticks = element_blank(), panel.grid = element_blank(), axis.text = element_blank(), 
+          axis.title = element_blank()) + 
+  geom_text(aes(label = scales::percent(percentage)) , position = position_stack(vjust = 0.6)) +
+  labs(title = "Normotensive Patients By Stroke Status") 
+
+#Viewing the two above charts together
+grid.arrange(c,d, ncol = 1)
+
+```  
+
+
+  
+About 13% of patients with Hypertension have had stroke, while just approximately 4% of Normotensive patients have stroke in our data.    
+The visualization thus shows that hypertension status of patients increases their chance of having Stroke
+
+
+
+I would like to visualize the data for people with and without both Hypertension and Hearth disease, in relation to their stroke status.
+
+```{r}
+# Patients with neither hearth disease non hypertension
+e <- Stroke_prediction %>% filter(heart_disease == 0 & hypertension==0 ) %>% group_by(stroke) %>% summarise(people = n()) %>% 
+  mutate( total = sum(people), percentage = (people/total)) %>% 
+  ggplot(mapping = aes(x="", y = percentage, fill = stroke)) +
+  geom_col(stat = "identity", width = 1) + coord_polar(theta = "y", start = 0) + 
+  theme(  axis.ticks = element_blank(), panel.grid = element_blank(), axis.text = element_blank(), 
+          axis.title = element_blank()) + 
+  geom_text(aes(label = scales::percent(percentage)) , position = position_stack(vjust = 0.6))+ labs(title = "People with neither hypertension nor heart disease") 
+
+
+# patients with both hearth disease and hypertension 
+f<- Stroke_prediction %>% filter(heart_disease == 1 & hypertension==1 ) %>% group_by(stroke) %>% summarise(people = n()) %>% 
+  mutate( total = sum(people), percentage = (people/total)) %>% 
+  ggplot(mapping = aes(x="", y = percentage, fill = stroke)) +
+  geom_col(stat = "identity", width = 1) + coord_polar(theta = "y", start = 0) + 
+  theme(  axis.ticks = element_blank(), panel.grid = element_blank(), axis.text = element_blank(),
+          axis.title = element_blank()) + 
+  geom_text(aes(label = scales::percent(percentage)) , position = position_stack(vjust = 0.6)) +
+  labs(title = "People with both hypertension & heart disease") 
+
+
+#Viewing the two above charts together
+grid.arrange(e,f)
+
+```  
+
+  
+As expected, having both Hypertension and Heart disease increases the chances of having stroke even more. About 20% of patients in our data with these two diseases have stroke.  
+      
+
+#### 5.5 Assessment of the effect of bmi on stroke  
+
+I will group Bmi according to  [National center for biotechnology information](https://www.ncbi.nlm.nih.gov/books/NBK541070/), using the following criteria:  
+
+* if BMI is less than 18.5, it falls within the underweight range. 
+* If BMI is 18.5 to <25, it falls within the healthy weight range. 
+* If BMI is 25.0 to <30, it falls within the overweight range.
+* If BMI is 30.0 or higher, it falls within the obesity range.
+
+
+```{r}
+
+g <- Stroke_prediction %>% filter(!is.na(bmi), stroke == 1) %>%  mutate(bmi_category = case_when(bmi < 18.5 ~ "Underweight", 
+                                                                                            bmi >= 18.5 & bmi < 25 ~ "Healthy", 
+                                                                                            bmi >= 25 & bmi < 30 ~ 'Overweight' , bmi >= 30 ~ "Obesity")) %>% 
+  group_by(bmi_category) %>% summarise(people = n()) %>%  mutate(total = sum(people), percent = people / total) %>% 
+  ggplot() + geom_col(mapping = aes(x= bmi_category, y = percent, fill = bmi_category)) + scale_y_continuous(labels =  scales::percent_format(accuracy = 1)) +
+  labs(title = "Stroke Patients by Bmi Category") + 
+  theme(axis.title  = element_blank(), axis.text.x = element_blank() ) +
+  scale_fill_brewer(palette = "Dark2")+
+  theme( plot.title = element_text(size = 14, face = "bold"),  axis.line = element_line(size = 1), axis.ticks = element_line() )
+
+
+h <- Stroke_prediction %>% filter(!is.na(bmi), stroke == 0) %>%  mutate(bmi_category = case_when(bmi < 18.5 ~ "Underweight", 
+                                                                                            bmi >= 18.5 & bmi < 25 ~ "Healthy", 
+                                                                                            bmi >= 25 & bmi < 30 ~ 'Overweight' , bmi >= 30 ~ "Obesity")) %>% 
+  group_by(bmi_category) %>% summarise(people = n()) %>%  mutate(total = sum(people), percent = people / total) %>% 
+  ggplot() + geom_col(mapping = aes(x= bmi_category, y = percent, fill = bmi_category)) + scale_y_continuous(labels =  scales::percent_format(accuracy = 1)) +
+  labs(title = "Non_Stroke Patients by Bmi Category") + 
+  theme(axis.title  = element_blank(),  axis.text.x = element_blank(), legend.position = "None" ) +
+  scale_fill_brewer(palette = "Dark2")+
+  theme( plot.title = element_text(size = 14, face = "bold"),  axis.line = element_line(size = 1), axis.ticks = element_line() )
+
+
+#Viewing the two above charts together
+grid.arrange(g, h, ncol = 1)
+
+```  
+  
+                                
+There is reduction in the percentage of Underweight and Healthy weight patients affected by stroke when the two charts are compared  
+There is also a little increase in the percentage of Obese patients from about 38% to around 47% in Non_Stroke and stroke patients respectively.
+
+
+
+#### 5.6 Relationship between Average Glucose level and Stroke status 
+
+I will visualize the relationship between Average Glucose level and Stroke status using a Density plot.
+ 
+ 
+```{r}
+
+ggplot(Stroke_prediction) + geom_density(mapping = aes(x = avg_glucose_level, fill = stroke, color = stroke ), alpha =0.5)+ 
+  theme(  axis.line =  element_line(size = 1), panel.grid = element_blank(),plot.title = element_text(size = 14, face = "bold"))  +
+  labs(title = "Relationship Between Glucose Level and Stroke status") 
+```
+
+
+The above chart shows that most people with average glucose level more than 200 have had stroke   
+Majority of people who have had no stroke have their average glucose level between 50 and 125  
+This indicate that higher average glucose level of a patient might be associated with higher chances of them having stroke
+
+
+#### 5.7 Effect of smoking status on stroke  
+
+I will check the effect of smoking status on stroke status using a bar plot.  
+Will also remove people with unknown smoking status
+
+```{r}
+Stroke_prediction %>% filter(!smoking_status == "Unknown") %>%  ggplot(mapping = aes(x = smoking_status, fill = smoking_status)) + 
+  geom_bar() + facet_wrap(~stroke, switch = "x") + theme_minimal() +
+  theme(axis.text.x = element_blank(), axis.ticks.x  = element_blank(), 
+        panel.border = element_blank(), panel.grid = element_blank(), axis.line = element_line(size = 1.2)) +
+  labs(title = 'Effect of smoking status on stroke',x = "Stroke") + scale_y_continuous( breaks =  seq(0, 2000, 250) ) +
+  theme(strip.placement = "outside",plot.title = element_text(size = 14, face = "bold"))
+```  
+
+
+From the above chart, it seems smoking status doesn't have effect on stroke prediction.
+
+
+### 6 Act Phase        
+#### 6.1 Conclusion:  
+
+In this data set, 0 denotes a stroke-free patient, while 1 denotes a stroke patient. Out of the 5110 patients, 249 suffered strokes while the remaining 4861 did not. I deduced from the visualizations of this data that the risk of stroke is increased by the existence of heart disease, hypertension, and high blood sugar. Additionally, as older persons are more susceptible to stroke, there is a clear link between age and stroke. As the percentage of obese and overweight patients increases slightly among stroke patients, BMI also appears to have a negligible impact. In this investigation, no association between smoking and stroke was found.  
+
+
+#### 6.2 Recommendations:  
+
+* As age is an irreversible phenomenon, patients with conditions like hypertension, hearth disease and diabetes should be encourage to have their doctors monitor them, in order to prevent stroke.  
+* The general public should also be educated on the negative effect of excessive sugar consumption.  
+* Overweight and obese people should be encouraged to lose some weight, in order to reduce their chances of having stroke.
+
+
+
+
